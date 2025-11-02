@@ -1,0 +1,1456 @@
+{
+
+	ProductName: "Shadow Engine",
+	Version: "0.8.0", // Three parts, dots are delimiters
+
+	// Extra string appended to version number to help identify and
+	// differentiate builds from each other. If not empty, a "-" will be
+	// prefixed to the local version, so no need to add it yourself
+	LocalVersion: "",
+
+	CC: "clang",
+	CXX: "clang++",
+	AR: "ar",
+
+	// Pass CXX and CC through ccache
+	CompilerCaching: true,
+
+	// Regenerate Ninja build files upon becoming out of date with this file
+	SelfRegeneration: false,
+	
+	// You can use the following to format this string:
+	// {dbg} - Debug or Release
+	// {version} - Version number + Local Version
+	// {cc} - Compiler name
+	// {cxx} - Compiler name
+	// BuildDir: "shadow-{dbg}-{version}-{cc}",
+	BuildDir: "sdw",
+
+	DebugBuild: true,
+
+	EngineConfiguration: [
+			
+		// Might remove this in the future. For now, you can change this to
+		// replace the name of the engine in some locations
+		["PRETTY_NAME", "Shadow Engine"],
+
+		// Enables the time profiler built into Shadow, useful internally while
+		// developing the engine
+		["ENABLE_SHADOW_PROFILER", true],
+
+		// Prints more somewhat useful garbage on the screen for me
+		["VINCES_MORE_VERBOSE_DEBUG_TEXT", false],
+
+		// Default location of the UserCode library
+		["DYNAMIC_USERCODE_LIBRARY_LOCATION", "./libusercode.so"],
+
+		// Location of the config directory where everything Shadow related is
+		// stored
+		["EDITOR_CONFIG_DIR_UNIX", "~/.config/Shadow"],
+		["EDITOR_CONFIG_DIR_WINDOWS", "%AppData%\\ShadowEngine"],
+
+		// Return a missing texture on texture loading failure instead of
+		// erroring and probably crashing
+		["MISSING_TEXTURE_ON_FAIL_LOAD", false],
+
+		// Full production run, everything packed into chunker files, built as
+		// release, all editor components are excluded
+		["SHADOW_PRODUCTION_BUILD", false],
+
+		// If the AXE authentication unit should use the production or
+		// development server. The production server hits nexus.77z.dev and
+		// dev hits localhost:8787. Prefer production for releases obviously
+		["USE_PROD_AUTH_SERVER", true]
+	],
+
+	Shaders: {
+		// Disabling this will most likely cause the build to fail
+		Enabled: true,
+
+		// Compile all shaders directly into engine binary
+		EmbedShaders: false,
+
+		ShadersLocation: "Shaders",
+
+		Compiler: "{BuildDir}/shaderc/shaderc",
+
+		IncludeDirs: [ "lib/bgfx/src" ]
+	},
+
+	Targets: [
+		// LIBRARIES
+		{ Name: "bx",
+			PrettyName: "BX",
+			Type: "StaticLib",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bx",
+			Artifact: "libbx.a",
+
+			std: "c++26",
+			Defines: [],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-ffast-math", "-fomit-frame-pointer",
+				"-m64", "-fno-rtti", "-fno-exceptions", "-Wshadow",
+				"-mfpmath=sse", "-msse4.2", "-Wunused-value", "-Wundef",
+				"-Wlogical-op", "-fPIC" ],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [ "include", "3rdparty", "include/compat/linux" ],
+			Sources: [ "src/*.cpp" ],
+			SrcExcludes: [ "src/amalgamated.*" ]
+		},
+		{ Name: "bimg",
+			PrettyName: "BIMG",
+			Type: "StaticLib",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bimg",
+			Artifact: "libbimg.a",
+
+			std: "c++26",
+			Defines: [],
+			// astc-encoder doesn't work with fast-math
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-fomit-frame-pointer", "-m64",
+				"-fno-rtti", "-fno-exceptions", "-Wshadow","-mfpmath=sse",
+				"-msse4.2", "-Wunused-value", "-Wundef", "-Wlogical-op",
+				"-fPIC" ],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0" ],
+				CXXFLAGS: [ '-O3'] 
+			},
+
+			IncludeDirs: [
+				"include", "3rdparty", "3rdparty/astc-encoder/include",
+				"3rdparty/tinyexr/deps/miniz", "3rdparty/iqa/include",
+				"../bx/include" ],
+			Sources: [
+				"src/*.cpp",
+				"3rdparty/astc-encoder/source/*.cpp",
+				"3rdparty/tinyexr/deps/miniz/miniz.c",
+			],
+			SrcExcludes: [
+				"src/image_cubemap_filter.cpp",
+				"src/image_decode.cpp",
+				"src/image_encode.cpp",
+			]
+		},
+		{ Name: "bimg_encode",
+			PrettyName: "BIMG Encoding Module",
+			Type: "StaticLib",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bimg",
+			Artifact: "libbimg_encode.a",
+
+			std: "c++26",
+			Defines: [],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-fomit-frame-pointer", "-m64",
+				"-fno-rtti", "-fno-exceptions", "-mfpmath=sse",
+				"-msse4.2", "-Wunused-value", "-Wundef", "-Wlogical-op",
+				"-Wno-implicit-fallthrough", "-Wno-shadow",
+				"-Wno-shift-negative-value", "-Wno-undef",
+				"-Wno-class-memaccess", "-Wno-deprecated-copy", "-fPIC" ],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0" ],
+				CXXFLAGS: [ '-O3'] 
+			},
+
+			IncludeDirs: [
+				"include", "3rdparty", "../bx/include",
+				"3rdparty/astc-encoder/include",
+				"3rdparty/tinyexr/deps/miniz",
+				"3rdparty/iqa/include",
+				"3rdparty/nvtt" ],
+			Sources: [
+				"src/image_encode.cpp",
+				"src/image_cubemap_filter.cpp",
+				"3rdparty/libsquish/*.cpp",
+				"3rdparty/edtaa3/*.cpp",
+				"3rdparty/etc1/*.cpp",
+				"3rdparty/etc2/*.cpp",
+				"3rdparty/nvtt/*.cpp",
+				"3rdparty/pvrtc/*.cpp",
+				"3rdparty/tinyexr/*.cpp",
+				"3rdparty/iqa/source/*.c",
+			],
+			SrcExcludes: []
+		},
+		{ Name: "bimg_decode",
+			PrettyName: "BIMG Decoding Module",
+			Type: "StaticLib",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bimg",
+			Artifact: "libbimg_decode.a",
+
+			std: "c++26",
+			Defines: [],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-ffast-math", "-fomit-frame-pointer",
+				"-m64", "-fno-rtti", "-fno-exceptions", "-Wshadow",
+				"-mfpmath=sse", "-msse4.2", "-Wunused-value", "-Wundef",
+				"-Wlogical-op", "-fPIC" ],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1" ],
+				CXXFLAGS: [ "-g" ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"include", "3rdparty", "../bx/include",
+				"3rdparty/tinyexr/deps/miniz" ],
+			Sources: [ "src/image_decode.cpp", "3rdparty/tinyexr/deps/miniz/miniz.c" ],
+			SrcExcludes: []
+		},
+		{ Name: "bgfx",
+			PrettyName: "BGFX",
+			Type: "StaticLib",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bgfx",
+			Artifact: "libbgfx.a",
+
+			std: "c++26",
+			Defines: [],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-ffast-math", "-fomit-frame-pointer",
+				"-m64", "-fno-rtti", "-fno-exceptions", "-Wshadow",
+				"-mfpmath=sse", "-msse4.2", "-Wunused-value", "-Wundef",
+				"-Wlogical-op", "-fPIC" ],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1" ],
+				CXXFLAGS: [ "-g" ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"include", "3rdparty",
+				"../bimg/include", "../bx/include",
+				"3rdparty/directx-headers/include/directx",
+				"3rdparty/directx-headers/include",
+				"3rdparty/directx-headers/include/wsl/stubs",
+				"3rdparty/khronos/",
+				"../bx/include/compat/linux" ],
+			Sources: [ "src/*.cpp" ],
+			SrcExcludes: [ "src/amalgamated.*" ]
+		},
+		{ Name: "example-common",
+			PrettyName: "Example Shared Code",
+			Type: "StaticLib",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bgfx",
+			Artifact: "libexample-common.a",
+
+			std: "c++26",
+			Defines: [],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-ffast-math", "-fomit-frame-pointer",
+				"-g", "-m64", "-fno-rtti", "-fno-exceptions", "-Wshadow",
+				"-mfpmath=sse", "-msse4.2", "-Wunused-value", "-Wundef",
+				"-Wlogical-op", "-fPIC" ],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1" ],
+				CXXFLAGS: []
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"include", "3rdparty",
+				"../bimg/include", "../bx/include" ],
+			Sources: [
+				"3rdparty/meshoptimizer/src/*.cpp",
+				"3rdparty/dear-imgui/*.cpp",
+				"examples/common/*.cpp" ],
+			SrcExcludes: [ "examples/common/example-glue.cpp" ]
+		},
+		{ Name: "example-glue",
+			PrettyName: "Example Glue",
+			Type: "StaticLib",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bgfx/examples/common",
+			Artifact: "libexample-glue.a",
+
+			std: "c++26",
+			Defines: [
+				"__STDC_LIMIT_MACROS", "__STDC_FORMAT_MACROS",
+				"__STDC_CONSTANT_MACROS" ],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-ffast-math", "-fomit-frame-pointer",
+				"-m64", "-fno-rtti", "-fno-exceptions", "-Wshadow",
+				"-mfpmath=sse", "-msse4.2", "-Wunused-value", "-Wundef",
+				"-Wlogical-op", "-fPIC" ],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1", "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"../../../bx/include",
+				"../../../bx/include/compat/linux",
+				"../../../bimg/include",
+				"../../include", // BGFX include dir
+				"../../3rdparty" ],
+			Sources: [ "example-glue.cpp" ],
+			SrcExcludes: []
+		},
+		{ Name: "spirv-opt",
+			PrettyName: "SPIRV Tools",
+			Type: "StaticLib",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bgfx/3rdparty/spirv-tools",
+			Artifact: "libspirv-opt.a",
+
+			std: "c++17",
+			Defines: [
+				"__STDC_LIMIT_MACROS",
+				"__STDC_FORMAT_MACROS",
+				"__STDC_CONSTANT_MACROS" ],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-ffast-math", "-fomit-frame-pointer",
+				"-m64", "-fno-rtti", "-fno-exceptions", "-Wshadow",
+				"-mfpmath=sse", "-msse4.2", "-Wunused-value", "-Wundef",
+				"-Wlogical-op", "-Wno-switch", "-Wno-misleading-indentation" ],
+
+			IfDebug: {
+				Defines: [ "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				".", "include", "include/generated", "source",
+				"../spirv-headers/include" ],
+			Sources: [ "source/*.cpp" ],
+			SrcExcludes: [ "source/spirv_fuzzer_options.cpp" ]
+		},
+		{ Name: "spirv-cross",
+			PrettyName: "SPIRV Cross",
+			Type: "StaticLib",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bgfx/3rdparty/spirv-cross",
+			Artifact: "libspirv-cross.a",
+
+			std: "c++17",
+			Defines: [
+				"__STDC_LIMIT_MACROS",
+				"__STDC_FORMAT_MACROS",
+				"__STDC_CONSTANT_MACROS",
+				"SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS",
+				"SPIRV_CROSS_C_API_MSL=0" ],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-ffast-math", "-fomit-frame-pointer",
+				"-m64", "-fno-rtti", "-fno-exceptions", "-Wshadow",
+				"-mfpmath=sse", "-msse4.2", "-Wunused-value", "-Wundef",
+				"-Wlogical-op", "-Wno-type-limits" ],
+
+			IfDebug: {
+				Defines: [ "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [ ".", "include" ],
+			Sources: [ "*.cpp" ],
+			SrcExcludes: [ "main.cpp", "spirv_cross_c.cpp" ]
+		},
+		{ Name: "glsl-optimizer",
+			PrettyName: "GLSL Optimizer",
+			Type: "StaticLib",
+			Language: "C", // deprecated
+			BaseDir: "lib/bgfx/3rdparty/glsl-optimizer",
+			Artifact: "libglsl-optimizer.a",
+
+			std: "c++17",
+			Defines: [
+				"__STDC_LIMIT_MACROS",
+				"__STDC_FORMAT_MACROS",
+				"__STDC_CONSTANT_MACROS" ],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-ffast-math", "-fomit-frame-pointer",
+				"-m64",
+				"-mfpmath=sse", "-msse4.2", "-Wunused-value", "-Wundef",
+				"-Wlogical-op",
+				"-fno-strict-aliasing", // glsl-optimizer has bugs if strict aliasing is used.
+				"-Wno-implicit-fallthrough",
+				"-Wno-parentheses",
+				"-Wno-sign-compare",
+				"-Wno-unused-function",
+				"-Wno-unused-parameter",
+				
+				// MinGW AND Linux GCC
+				"-Wno-misleading-indentation",
+
+				// MacOS
+				// "-Wno-deprecated-register",
+				],
+
+			IfDebug: {
+				Defines: [ "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				".", "src", "include",
+				"src/mesa",
+				"src/mapi",
+				"src/glsl" ],
+			Sources: [
+				"src/glsl/glcpp/glcpp-lex.c",
+				"src/glsl/glcpp/glcpp-parse.c",
+				"src/glsl/glcpp/pp.c",
+
+				"src/glsl/ast_array_index.cpp",
+				"src/glsl/ast_expr.cpp",
+				"src/glsl/ast_function.cpp",
+				"src/glsl/ast_to_hir.cpp",
+				"src/glsl/ast_type.cpp",
+				"src/glsl/builtin_functions.cpp",
+				"src/glsl/builtin_types.cpp",
+				"src/glsl/builtin_variables.cpp",
+				"src/glsl/glsl_lexer.cpp",
+				"src/glsl/glsl_optimizer.cpp",
+				"src/glsl/glsl_parser.cpp",
+				"src/glsl/glsl_parser_extras.cpp",
+				"src/glsl/glsl_symbol_table.cpp",
+				"src/glsl/glsl_types.cpp",
+				"src/glsl/hir_field_selection.cpp",
+				"src/glsl/ir.cpp",
+				"src/glsl/ir_basic_block.cpp",
+				"src/glsl/ir_builder.cpp",
+				"src/glsl/ir_clone.cpp",
+				"src/glsl/ir_constant_expression.cpp",
+				"src/glsl/ir_equals.cpp",
+				"src/glsl/ir_expression_flattening.cpp",
+				"src/glsl/ir_function.cpp",
+				"src/glsl/ir_function_can_inline.cpp",
+				"src/glsl/ir_function_detect_recursion.cpp",
+				"src/glsl/ir_hierarchical_visitor.cpp",
+				"src/glsl/ir_hv_accept.cpp",
+				"src/glsl/ir_import_prototypes.cpp",
+				"src/glsl/ir_print_glsl_visitor.cpp",
+				"src/glsl/ir_print_metal_visitor.cpp",
+				"src/glsl/ir_print_visitor.cpp",
+				"src/glsl/ir_rvalue_visitor.cpp",
+				"src/glsl/ir_stats.cpp",
+				"src/glsl/ir_unused_structs.cpp",
+				"src/glsl/ir_validate.cpp",
+				"src/glsl/ir_variable_refcount.cpp",
+				"src/glsl/link_atomics.cpp",
+				"src/glsl/link_functions.cpp",
+				"src/glsl/link_interface_blocks.cpp",
+				"src/glsl/link_uniform_block_active_visitor.cpp",
+				"src/glsl/link_uniform_blocks.cpp",
+				"src/glsl/link_uniform_initializers.cpp",
+				"src/glsl/link_uniforms.cpp",
+				"src/glsl/link_varyings.cpp",
+				"src/glsl/linker.cpp",
+				"src/glsl/loop_analysis.cpp",
+				"src/glsl/loop_controls.cpp",
+				"src/glsl/loop_unroll.cpp",
+				"src/glsl/lower_clip_distance.cpp",
+				"src/glsl/lower_discard.cpp",
+				"src/glsl/lower_discard_flow.cpp",
+				"src/glsl/lower_if_to_cond_assign.cpp",
+				"src/glsl/lower_instructions.cpp",
+				"src/glsl/lower_jumps.cpp",
+				"src/glsl/lower_mat_op_to_vec.cpp",
+				"src/glsl/lower_named_interface_blocks.cpp",
+				"src/glsl/lower_noise.cpp",
+				"src/glsl/lower_offset_array.cpp",
+				"src/glsl/lower_output_reads.cpp",
+				"src/glsl/lower_packed_varyings.cpp",
+				"src/glsl/lower_packing_builtins.cpp",
+				"src/glsl/lower_ubo_reference.cpp",
+				"src/glsl/lower_variable_index_to_cond_assign.cpp",
+				"src/glsl/lower_vec_index_to_cond_assign.cpp",
+				"src/glsl/lower_vec_index_to_swizzle.cpp",
+				"src/glsl/lower_vector.cpp",
+				"src/glsl/lower_vector_insert.cpp",
+				"src/glsl/lower_vertex_id.cpp",
+				"src/glsl/opt_algebraic.cpp",
+				"src/glsl/opt_array_splitting.cpp",
+				"src/glsl/opt_constant_folding.cpp",
+				"src/glsl/opt_constant_propagation.cpp",
+				"src/glsl/opt_constant_variable.cpp",
+				"src/glsl/opt_copy_propagation.cpp",
+				"src/glsl/opt_copy_propagation_elements.cpp",
+				"src/glsl/opt_cse.cpp",
+				"src/glsl/opt_dead_builtin_variables.cpp",
+				"src/glsl/opt_dead_builtin_varyings.cpp",
+				"src/glsl/opt_dead_code.cpp",
+				"src/glsl/opt_dead_code_local.cpp",
+				"src/glsl/opt_dead_functions.cpp",
+				"src/glsl/opt_flatten_nested_if_blocks.cpp",
+				"src/glsl/opt_flip_matrices.cpp",
+				"src/glsl/opt_function_inlining.cpp",
+				"src/glsl/opt_if_simplification.cpp",
+				"src/glsl/opt_minmax.cpp",
+				"src/glsl/opt_noop_swizzle.cpp",
+				"src/glsl/opt_rebalance_tree.cpp",
+				"src/glsl/opt_redundant_jumps.cpp",
+				"src/glsl/opt_structure_splitting.cpp",
+				"src/glsl/opt_swizzle_swizzle.cpp",
+				"src/glsl/opt_tree_grafting.cpp",
+				"src/glsl/opt_vectorize.cpp",
+				"src/glsl/s_expression.cpp",
+				"src/glsl/standalone_scaffolding.cpp",
+				"src/glsl/strtod.c",
+
+				"src/mesa/main/imports.c",
+
+				"src/mesa/program/prog_hash_table.c",
+				"src/mesa/program/symbol_table.c",
+
+				"src/util/hash_table.c",
+				"src/util/ralloc.c",
+			],
+			SrcExcludes: []
+		},
+		{ Name: "glslang",
+			PrettyName: "Glslang",
+			Type: "StaticLib",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bgfx/3rdparty/glslang",
+			Artifact: "libglslang.a",
+
+			std: "c++17",
+			Defines: [
+				"__STDC_LIMIT_MACROS",
+				"__STDC_FORMAT_MACROS",
+				"__STDC_CONSTANT_MACROS",
+				"ENABLE_OPT=1", // spirv-tools
+				"ENABLE_HLSL=1" ],
+			CXXFLAGS: [
+				"-Wall",
+				"-Wextra",
+				"-ffast-math",
+				"-fomit-frame-pointer",
+				"-m64",
+				"-fno-rtti",
+				"-fno-exceptions",
+				"-mfpmath=sse",
+				"-msse4.2",
+				"-Wunused-value",
+				"-Wlogical-op",
+				"-Wno-type-limits",
+				"-fno-strict-aliasing", // glslang has bugs if strict aliasing is used.
+				"-Wno-ignored-qualifiers",
+				"-Wno-implicit-fallthrough",
+				"-Wno-missing-field-initializers",
+				"-Wno-reorder",
+				"-Wno-return-type",
+				"-Wno-shadow",
+				"-Wno-sign-compare",
+				"-Wno-switch",
+				"-Wno-undef",
+				"-Wno-unknown-pragmas",
+				"-Wno-unused-function",
+				"-Wno-unused-parameter",
+				"-Wno-unused-variable",
+				
+				// Linux GCC
+				"-Wno-unused-but-set-variable",
+
+				// MinGW AND Linux GCC
+				"-Wno-logical-op",
+				"-Wno-maybe-uninitialized",
+
+				// MacOS
+				// "-Wno-c++11-extensions",
+				// "-Wno-unused-const-variable",
+				// "-Wno-deprecated-register",
+				],
+
+			IfDebug: {
+				Defines: [ "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				".", "..", "../spirv-tools/include", "../spirv-tools/source" ],
+			Sources: [
+				"glslang/*.cpp", "SPIRV/*.cpp", "OGLCompilersDLL/*.cpp" ],
+
+			// IF WINDOWS
+			// SrcExcludes: [ "glslang/OSDependent/Unix/*.cpp" ],
+
+			// IF NOT WINDOWS
+			SrcExcludes: [ "glslang/OSDependent/Windows/*.cpp" ]
+		},
+		{ Name: "fcpp",
+			PrettyName: "Frexx CPP",
+			Type: "StaticLib",
+			Language: "C", // deprecated
+			BaseDir: "lib/bgfx/3rdparty/fcpp",
+			Artifact: "libfcpp.a",
+
+			std: "c99",
+			Defines: [
+				"NINCLUDE=64",
+				"NWORK=65536",
+				"NBUFF=65536",
+				"OLD_PREPROCESSOR=0", ],
+			CXXFLAGS: [
+				"-Wall",
+				"-Wextra",
+				"-ffast-math",
+				"-fomit-frame-pointer",
+				"-m64",
+				"-Wshadow",
+				"-mfpmath=sse",
+				"-msse4.2",
+				"-Wunused-value",
+				"-Wundef",
+				"-Wlogical-op",
+				"-m64",
+
+				// NOT MSVC
+				"-Wno-implicit-fallthrough",
+				"-Wno-incompatible-pointer-types", ],
+
+			IfDebug: {
+				Defines: [ "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [ "." ],
+			Sources: [ "*.c" ],
+			SrcExcludes: [ "usecpp.c"]
+		},
+		{ Name: "snappy",
+			PrettyName: "Snappy",
+			Type: "StaticLib",
+			Language: "C++", // deprecated
+			BaseDir: "lib/snappy-lib",
+			Artifact: "libsnappy.a",
+
+			std: "c++11",
+			Defines: [ "HAVE_CONFIG_H" ],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-Wno-sign-compare", "-fno-exceptions",
+				"-fno-rtti" ],
+
+			IfDebug: {
+				Defines: [],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [ ".", "../../misc/snappy-hack" ],
+			Sources: [
+				"snappy.cc",
+				"snappy-stubs-internal.cc",
+				"snappy-sinksource.cc",
+				"snappy-c.cc" ],
+			SrcExcludes: []
+		},
+		{ Name: "leveldb",
+			PrettyName: "LevelDB",
+			Type: "StaticLib",
+			Language: "C++", // deprecated
+			BaseDir: "lib/leveldb-lib",
+			Artifact: "libleveldb.a",
+
+			std: "c++11",
+			Defines: [ "LEVELDB_PLATFORM_POSIX=1", "LEVELDB_COMPILE_LIBRARY" ],
+			CXXFLAGS: [ "-fno-exceptions", "-fno-rtti" ],
+
+			IfDebug: {
+				Defines: [],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [ ".", "include" ],
+			Sources: [
+				"db/*.cc", "table/*.cc", "util/*.cc", "helpers/memenv/*.cc" ],
+			SrcExcludes: [
+				"*_test.cc", "util/testutil.cc", "util/env_windows.cc" ]
+		},
+		{ Name: "chunker",
+			PrettyName: "Chunker Library",
+			Type: "StaticLib",
+			BaseDir: "chunker/lib",
+			Artifact: "libchunker.a",
+
+			std: "c++26",
+			Defines: [],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-ffast-math", "-fomit-frame-pointer",
+				"-m64", "-Wshadow", "-mfpmath=sse", "-msse4.2",
+				"-Wunused-value", "-Wundef", "-fPIC" ],
+
+			IfDebug: {
+				Defines: [],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [ "." ],
+			Sources: [ "v3.cpp" ],
+			SrcExcludes: []
+		},
+
+		{ Name: "examples",
+			PrettyName: "Examples",
+			Type: "Executable",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bgfx/examples",
+			Artifact: "shadowExamples",
+
+			std: "c++17",
+			Defines: [
+				"__STDC_LIMIT_MACROS",
+				"__STDC_FORMAT_MACROS",
+				"__STDC_CONSTANT_MACROS" ],
+			CXXFLAGS: [
+				"-Wall",
+				"-Wextra",
+				"-ffast-math",
+				"-fomit-frame-pointer",
+				"-fno-rtti",
+				"-fno-exceptions",
+				"-Wshadow",
+				"-mfpmath=sse",
+				"-msse4.2",
+				"-Wunused-value",
+				"-Wundef",
+				"-Wlogical-op"
+				],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1", "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0", "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"../include", // BGFX include dir
+				"../../bx/include",
+				"../../bx/include/compat/linux",
+				"../../bimg/include",
+				"../3rdparty",
+				"./common" ],
+
+			Sources: [
+				"00-helloworld/*.cpp",
+				"01-cubes/*.cpp",
+				"02-metaballs/*.cpp",
+				"03-raymarch/*.cpp",
+				"04-mesh/*.cpp",
+				"05-instancing/*.cpp",
+				"06-bump/*.cpp",
+				"07-callback/*.cpp",
+				"08-update/*.cpp",
+				"09-hdr/*.cpp",
+				"10-font/*.cpp",
+				"11-fontsdf/*.cpp",
+				"12-lod/*.cpp",
+				"13-stencil/*.cpp",
+				"14-shadowvolumes/*.cpp",
+				"15-shadowmaps-simple/*.cpp",
+				"16-shadowmaps/*.cpp",
+				// "17-drawstress/*.cpp",
+				"18-ibl/*.cpp",
+				"19-oit/*.cpp",
+				"20-nanovg/*.cpp",
+				"21-deferred/*.cpp",
+				"22-windows/*.cpp",
+				"23-vectordisplay/*.cpp",
+				"24-nbody/*.cpp",
+				"25-c99/*.c",
+				"26-occlusion/*.cpp",
+				"27-terrain/*.cpp",
+				"28-wireframe/*.cpp",
+				"29-debugdraw/*.cpp",
+				"30-picking/*.cpp",
+				"31-rsm/*.cpp",
+				"32-particles/*.cpp",
+				"33-pom/*.cpp",
+				"34-mvs/*.cpp",
+				"35-dynamic/*.cpp",
+				"36-sky/*.cpp",
+				"37-gpudrivenrendering/*.cpp",
+				"38-bloom/*.cpp",
+				"39-assao/*.cpp",
+				"40-svt/*.cpp",
+				"41-tess/*.cpp",
+				"42-bunnylod/*.cpp", "42-bunnylod/*.c",
+				"43-denoise/*.cpp",
+				"44-sss/*.cpp",
+				"45-bokeh/*.cpp",
+				"46-fsr/*.cpp",
+				"47-pixelformats/*.cpp",
+				"48-drawindirect/*.cpp",
+				"49-hextile/*.cpp",
+			],
+			SrcExcludes: [],
+			LinkerFlags: [ "-lstdc++", "-lpthread", "-lrt", "-ldl", "-lX11" ],
+
+			InlineBuildLibs: [
+				"example-glue", "example-common", "bgfx", "bimg_decode",
+				"bimg", "bx" ],
+			
+			Libs: [],
+
+			PostBuild: {
+				Symlinks: [
+					["{cwd}/lib/bgfx/examples/runtime", "{targetDir}/runtime"],
+				]
+			}
+		},
+
+		// TOOLS
+		{ Name: "bin2c",
+			PrettyName: "Binary to C Header Tool",
+			Type: "Executable",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bx/tools/bin2c",
+			Artifact: "bin2c",
+
+			std: "c++17",
+			Defines: [
+				"__STDC_LIMIT_MACROS",
+				"__STDC_FORMAT_MACROS",
+				"__STDC_CONSTANT_MACROS" ],
+			CXXFLAGS: [
+				"-Wall",
+				"-Wextra",
+				"-ffast-math",
+				"-fomit-frame-pointer",
+				"-fno-rtti",
+				"-fno-exceptions",
+				"-Wshadow",
+				"-mfpmath=sse",
+				"-msse4.2",
+				"-Wunused-value",
+				"-Wundef",
+				"-Wlogical-op"
+				],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1", "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0", "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"../../include" // BX include dir
+			],
+
+			Sources: [ "bin2c.cpp" ],
+			SrcExcludes: [],
+			LinkerFlags: [ "-lstdc++", "-lpthread", "-lrt", "-ldl" ],
+
+			InlineBuildLibs: [ "bx" ],
+			
+			Libs: [],
+		},
+		{ Name: "shaderc",
+			PrettyName: "Shader Compiler",
+			Type: "Executable",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bgfx/tools/shaderc",
+			Artifact: "shaderc",
+
+			std: "c++17",
+			Defines: [
+				"__STDC_LIMIT_MACROS",
+				"__STDC_FORMAT_MACROS",
+				"__STDC_CONSTANT_MACROS" ],
+			CXXFLAGS: [
+				"-Wall",
+				"-Wextra",
+				"-ffast-math",
+				"-fomit-frame-pointer",
+				"-fno-rtti",
+				"-fno-exceptions",
+				"-Wshadow",
+				"-mfpmath=sse",
+				"-msse4.2",
+				"-Wunused-value",
+				"-Wundef",
+				"-Wlogical-op"
+				],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1", "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0", "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"../../include", // BGFX include dir
+				"../../../bx/include",
+				"../../../bimg/include",
+				"../../3rdparty/webgpu/include",
+				"../../3rdparty/dxsdk/include",
+				"../../3rdparty/fcpp",
+				"../../3rdparty/glslang/glslang/Public",
+				"../../3rdparty/glslang/glslang/Include",
+				"../../3rdparty/glslang",
+				"../../3rdparty/glsl-optimizer/include",
+				"../../3rdparty/glsl-optimizer/src/glsl",
+				"../../3rdparty/spirv-cross",
+				"../../3rdparty/spirv-tools/include" ],
+
+			Sources: [ "*.cpp" ],
+			SrcExcludes: [],
+			LinkerFlags: [ "-lstdc++", "-lpthread", "-lrt", "-ldl" ],
+
+			InlineBuildLibs: [
+				"bgfx",
+				"bx",
+				"bimg",
+				"fcpp",
+				"glslang",
+				"glsl-optimizer",
+				"spirv-opt",
+				"spirv-cross" ],
+			
+			Libs: [],
+		},
+		{ Name: "geometryc",
+			PrettyName: "Geometry Compiler",
+			Type: "Executable",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bgfx/tools/geometryc",
+			Artifact: "geometryc",
+
+			std: "c++17",
+			Defines: [
+				"__STDC_LIMIT_MACROS",
+				"__STDC_FORMAT_MACROS",
+				"__STDC_CONSTANT_MACROS" ],
+			CXXFLAGS: [
+				"-Wall",
+				"-Wextra",
+				"-ffast-math",
+				"-fomit-frame-pointer",
+				"-fno-rtti",
+				"-fno-exceptions",
+				"-Wshadow",
+				"-mfpmath=sse",
+				"-msse4.2",
+				"-Wunused-value",
+				"-Wundef",
+				"-Wlogical-op"
+				],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1", "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0", "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"../../include", // BGFX include dir
+				"../../../bx/include",
+				"../../3rdparty",
+				"../../examples/common",
+				"../../3rdparty/meshoptimizer/src" ],
+
+			Sources: [
+				"geometryc.cpp",
+				"../../3rdparty/meshoptimizer/src/*.cpp",
+				"../../src/vertexlayout.cpp" ],
+			SrcExcludes: [],
+			LinkerFlags: [ "-lstdc++", "-lpthread", "-lrt", "-ldl" ],
+
+			InlineBuildLibs: [ "bx" ],
+			
+			Libs: [],
+		},
+		{ Name: "geometryv",
+			PrettyName: "Geometry Viewer",
+			Type: "Executable",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bgfx/tools/geometryv",
+			Artifact: "geometryv",
+
+			std: "c++17",
+			Defines: [
+				"__STDC_LIMIT_MACROS",
+				"__STDC_FORMAT_MACROS",
+				"__STDC_CONSTANT_MACROS" ],
+			CXXFLAGS: [
+				"-Wall",
+				"-Wextra",
+				"-ffast-math",
+				"-fomit-frame-pointer",
+				"-fno-rtti",
+				"-fno-exceptions",
+				"-Wshadow",
+				"-mfpmath=sse",
+				"-msse4.2",
+				"-Wunused-value",
+				"-Wundef",
+				"-Wlogical-op"
+				],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1", "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0", "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"../../include", // BGFX include dir
+				"../../../bx/include",
+				"../../../bx/include/compat/linux",
+				"../../../bimg/include",
+				"../../3rdparty",
+				"../../examples/common" ],
+
+			Sources: [ "geometryv.cpp" ],
+			SrcExcludes: [],
+			LinkerFlags: [ "-lstdc++", "-lpthread", "-lrt", "-ldl", "-lX11" ],
+
+			// example-common has to come before bx for some reason :/
+			InlineBuildLibs: [ "bgfx", "example-common", "bx", "bimg", "bimg_decode"],
+			
+			Libs: [],
+		},
+		{ Name: "texturec",
+			PrettyName: "Texture Compiler",
+			Type: "Executable",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bimg/tools/texturec",
+			Artifact: "texturec",
+
+			std: "c++17",
+			Defines: [
+				"__STDC_LIMIT_MACROS",
+				"__STDC_FORMAT_MACROS",
+				"__STDC_CONSTANT_MACROS" ],
+			CXXFLAGS: [
+				"-Wall",
+				"-Wextra",
+				"-ffast-math",
+				"-fomit-frame-pointer",
+				"-fno-rtti",
+				"-fno-exceptions",
+				"-Wshadow",
+				"-mfpmath=sse",
+				"-msse4.2",
+				"-Wunused-value",
+				"-Wundef",
+				"-Wlogical-op"
+				],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1", "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0", "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"../../../bgfx/include",
+				"../../../bx/include",
+				"../../include", // BIMG include dir
+				"../../include/3rdparty/iqa/include", ],
+
+			Sources: [ "texturec.cpp" ],
+			SrcExcludes: [],
+			LinkerFlags: [ "-lstdc++", "-lpthread", "-lrt", "-ldl" ],
+
+			InlineBuildLibs: [ "bimg", "bimg_encode", "bimg_decode", "bx" ],
+			
+			Libs: [],
+		},
+		{ Name: "texturev",
+			PrettyName: "Texture Viewer",
+			Type: "Executable",
+			Language: "C++", // deprecated
+			BaseDir: "lib/bgfx/tools/texturev",
+			Artifact: "texturev",
+
+			std: "c++17",
+			Defines: [
+				"__STDC_LIMIT_MACROS",
+				"__STDC_FORMAT_MACROS",
+				"__STDC_CONSTANT_MACROS" ],
+			CXXFLAGS: [
+				"-Wall",
+				"-Wextra",
+				"-ffast-math",
+				"-fomit-frame-pointer",
+				"-fno-rtti",
+				"-fno-exceptions",
+				"-Wshadow",
+				"-mfpmath=sse",
+				"-msse4.2",
+				"-Wunused-value",
+				"-Wundef",
+				"-Wlogical-op"
+				],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1", "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0", "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"../../include", // BGFX include dir
+				"../../../bx/include",
+				"../../../bx/include/compat/linux",
+				"../../../bimg/include",
+				"../../3rdparty",
+				"../../examples/common" ],
+
+			Sources: [ "texturev.cpp" ],
+			SrcExcludes: [],
+			LinkerFlags: [ "-lstdc++", "-lpthread", "-lrt", "-ldl", "-lX11" ],
+
+			// example-common has to come before bx for some reason :/
+			InlineBuildLibs: [ "bgfx", "example-common", "bx", "bimg", "bimg_decode"],
+			
+			Libs: [],
+		},
+		{ Name: "chunker-cli",
+			PrettyName: "Chunker CLI Tool",
+			Type: "Executable",
+			BaseDir: "chunker/cli",
+			Artifact: "chunker",
+
+			std: "c++17",
+			Defines: [],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-ffast-math", "-fomit-frame-pointer",
+				"-m64", "-Wshadow", "-mfpmath=sse", "-msse4.2",
+				"-Wunused-value", "-Wundef", "-fPIC" ],
+
+			IfDebug: {
+				Defines: [
+					"SHADOW_DEBUG_BUILD", "BX_CONFIG_DEBUG=1", "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0", "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [ "../../lib/bx/include", "../../lib/termcolor" ],
+
+			Sources: [ "*.cpp" ],
+			SrcExcludes: [],
+			LinkerFlags: [ "-lstdc++", "-lpthread", "-lrt", "-ldl" ],
+
+			InlineBuildLibs: [ "bx", "chunker", "snappy" ],
+			
+			Libs: [],
+		},
+		{ Name: "chunker-inspect",
+			PrettyName: "Chunker CLI Inspection Tool",
+			Type: "Executable",
+			BaseDir: "chunker/inspectionTool",
+			Artifact: "chunker-inspect",
+
+			std: "c++17",
+			Defines: [],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-ffast-math", "-fomit-frame-pointer",
+				"-m64", "-Wshadow", "-mfpmath=sse", "-msse4.2",
+				"-Wunused-value", "-Wundef", "-fPIC" ],
+
+			IfDebug: {
+				Defines: [
+					"SHADOW_DEBUG_BUILD", "BX_CONFIG_DEBUG=1", "_DEBUG" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0", "NDEBUG" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [ "../../lib/bx/include", "../../lib/termcolor" ],
+
+			Sources: [ "*.cpp" ],
+			SrcExcludes: [],
+			LinkerFlags: [ "-lstdc++", "-lpthread", "-lrt", "-ldl" ],
+
+			InlineBuildLibs: [ "bx", "chunker", "snappy" ],
+
+			Libs: [],
+		},
+		{ Name: "glfw",
+			PrettyName: "GLFW",
+			Type: "StaticLib",
+			Language: "C", // deprecated
+			BaseDir: "lib/glfw",
+			Artifact: "libglfw.a",
+
+			std: "gnu99",
+			Defines: [ "_GLFW_X11", "_DEFAULT_SOURCE" ],
+			CXXFLAGS: [ "-m64", "-Wall", "-fPIC" ],
+
+			IfDebug: {
+				Defines: [],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [ "src", "include" ],
+			Sources: [ "src/*.c" ],
+			SrcExcludes: []
+		},
+
+		/*{ Name: "foundry",
+			PrettyName: "Foundry Scene Editor",
+			Type: "Executable",
+			BaseDir: "./foundry",
+			Artifact: "Foundry",
+
+			std: "c++26",
+			Defines: [],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-ffast-math", "-m64", "-fvisibility=hidden",
+				"-Wshadow", "-msse4.2", "-mavx2" ],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1", "SHADOW_DEBUG_BUILD" ],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"include",
+				"lib/bgfx/include",
+				"lib/bx/include",
+				"lib/bimg/include",
+				"lib/glfw/include",
+				"lib/modernjson",
+				"lib/miniaudio",
+				"lib/termcolor",
+				"lib/snappy-lib",
+				"lib/leveldb-lib/include",
+				"lib/entt",
+				"lib/stduuid",
+				"lib/xxHash",
+				"lib/imgui-lib",
+			],
+
+			Sources: [
+				"*.cpp",
+			],
+
+			SrcExcludes: [],
+			LinkerFlags: [
+				"-lstdc++", "-lm", "-lGL", "-lX11", "-ldl", "-lpthread", "-lrt",
+				"-lvulkan", "-fvisibility=hidden", "-lcurl",
+			],
+
+			InlineBuildLibs: [
+				"bgfx", "bimg", "bimg_encode", "bimg_decode", "bx", "glfw"],
+
+			Libs: [],
+		},*/
+
+		{ Name: "shadow-engine",
+			PrettyName: "Shadow Engine",
+			Type: "Executable",
+			Language: "C++", // deprecated
+			BaseDir: ".",
+			Artifact: "Shadow",
+
+			std: "c++26",
+			// Defines: [ "SHADOW_PRODUCTION_BUILD" ],
+			Defines: [],
+			CXXFLAGS: [
+				"-Wall", "-Wextra", "-m64", "-fvisibility=hidden",
+				"-Wshadow",
+//				"-ffast-math",
+				// ShadowAudio optimizations, update to -msse4.2???
+				"-msse2", "-mavx2" ],
+
+			IfDebug: {
+				Defines: [ "BX_CONFIG_DEBUG=1", "SHADOW_DEBUG_BUILD",
+					//"_REENTRANT" // Mono Runtime
+				],
+				CXXFLAGS: [ '-g' ]
+			},
+			IfRelease: {
+				Defines: [ "BX_CONFIG_DEBUG=0" ],
+				CXXFLAGS: [ '-O3' ]
+			},
+
+			IncludeDirs: [
+				"include",
+				"lib/bgfx/include",
+				"lib/bx/include",
+				"lib/bimg/include",
+				"lib/glfw/include",
+				"lib/modernjson",
+				"lib/miniaudio",
+				"lib/termcolor",
+				"lib/snappy-lib",
+				"lib/leveldb-lib/include",
+				"lib/entt",
+				"lib/stduuid",
+				"lib/ImGuizmo",
+				"lib/xxHash",
+				"lib/imgui-lib",
+				"lib/imgui-lib/backends",
+				"misc/snappy-hack",
+				"lib/bgfx/examples/common",
+				"lib/stb",
+				"lib/sdf",
+				//"/usr/include/mono-2.0"
+				// "../vcpkg/packages/ms-gsl_x64-linux/include"
+				"/code/jucing/JUCE/modules/"
+				],
+
+			Sources: [
+				"src/*.cpp",
+				"lib/imgui-lib/imgui.cpp",
+				"lib/imgui-lib/imgui_demo.cpp",
+				"lib/imgui-lib/imgui_draw.cpp",
+				"lib/imgui-lib/imgui_tables.cpp",
+				"lib/imgui-lib/imgui_widgets.cpp",
+				"lib/imgui-lib/backends/imgui_impl_glfw.cpp",
+				"lib/imgui-lib/backends/imgui_impl_vulkan.cpp",
+				"lib/imgui-lib/backends/imgui_impl_opengl3.cpp",
+				//TODO: Remove some ImGuizmos???
+				"lib/ImGuizmo/GraphEditor.cpp",
+				"lib/ImGuizmo/ImCurveEdit.cpp",
+				"lib/ImGuizmo/ImGradient.cpp",
+				"lib/ImGuizmo/ImGuizmo.cpp",
+				"lib/ImGuizmo/ImSequencer.cpp",
+			],
+
+			// This should and will work in the future, buuuuut... it doesn't
+			// right now, and that's fine. I'll fix it later. The reason this
+			// doesn't work is because Horde recursively searches for files in
+			// the imgui directory, and this causes it to match the file:
+			// "lib/imgui/examples/example_win32_directx12/main.cpp"
+			// against the wildcard "lib/imgui/*.cpp" even though this isn't the
+			// intention of the wildcard.
+			// Sources: [
+			//     "src/*.cpp", "src/**/*.cpp",
+			//     "lib/imgui/*.cpp", "lib/imgui/backends/imgui_impl_glfw.cpp",
+			//     "lib/imgui/backends/imgui_impl_vulkan.cpp" ],
+			SrcExcludes: [],
+			LinkerFlags: [
+				"-lstdc++", "-lm", "-lGL", "-lX11", "-ldl", "-lpthread", "-lrt",
+				"-lvulkan", "-fvisibility=hidden", "-lcurl", "-lfreetype", "-lfontconfig", "-lasound",
+				"/code/jucing/build/libaxe_juce_modules.a"
+			],
+			
+			// InlineBuildLibs is a list of libraries that will be included in
+			// the build of the current target, but they must be built within
+			// the current Horde build chain.
+			// Assumes that your target libraries follow the format:
+			//     (name)/lib(name).a
+			InlineBuildLibs: [
+				"bgfx", "bimg", "bimg_encode", "bimg_decode", "bx", "glfw",
+				"snappy", "leveldb" ],
+
+			// Libs is just a general list of libraries that will be linked
+			Libs: [],
+			PostBuild: {
+				Symlinks: [
+					// You can use the following to format these strings:
+					// {cwd} - Current working directory
+					// 			(from the dir that Horde was executed from)
+					// {targetDir} - directory your binary will be built to
+					["{cwd}/res/runtimeres", "{targetDir}/Resources"],
+					["../texturev/texturev", "{targetDir}/texturev"],
+					["../texturec/texturec", "{targetDir}/texturec"],
+					["../geometryc/geometryc", "{targetDir}/geometryc"],
+					["../geometryv/geometryv", "{targetDir}/geometryv"],
+					["../bin2c/bin2c", "{targetDir}/bin2c"],
+					["../chunker-cli/chunker", "{targetDir}/chunker"],
+				]
+			}
+		},
+	]
+
+}

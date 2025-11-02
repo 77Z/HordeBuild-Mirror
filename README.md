@@ -7,6 +7,6 @@ Mirror of my Horde build project to make the codebase easier to find. Since this
 
 # What's this project all about?
 
-It's a build file generator for the Ninja build system. It takes in a build.json5 ([see example here]()) file that specifies how a C/C++ project should be built, and Horde will generate .ninja build files that can be used to compile your code!
+It's a build file generator for the Ninja build system. It takes in a build.json5 ([see example here](https://github.com/77Z/HordeBuild-Mirror/blob/master/EXAMPLE%20build.json)) file that specifies how a C/C++ project should be built, and Horde will generate .ninja build files that can be used to compile your code!
 
 It's written in TypeScript and runs on the Deno JS runtime.
